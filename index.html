@@ -1597,13 +1597,35 @@ function confirmClearProductsDB() {
 // Enter = saltar al mismo campo de la fila siguiente (carga rápida tipo Excel).
 function enterNext(el, sel){ const n=el.closest('tr')?.nextElementSibling?.querySelector(sel); if(n){ n.focus({preventScroll:true}); n.scrollIntoView({block:'nearest'}); if(n.select) n.select(); } }
 // Editar mínimo/bulto directo en la tabla de Productos (aplica global).
-let _dbEditTimer=null;
-function scheduleDbSave(){ clearTimeout(_dbEditTimer); _dbEditTimer=setTimeout(()=>{ _dbEditTimer=null; recalcAllOrders(); save(); }, 600); }
-window.addEventListener('pagehide', ()=>{ if(_dbEditTimer){ clearTimeout(_dbEditTimer); _dbEditTimer=null; recalcAllOrders(); save(); } });
+let _dbEditTimer=null, _needRecalc=false;
+function _flushDbSave(){ if(_dbEditTimer){ clearTimeout(_dbEditTimer); _dbEditTimer=null; } if(_needRecalc){ recalcAllOrders(); _needRecalc=false; } save(); }
+function scheduleDbSave(){ _needRecalc=true; clearTimeout(_dbEditTimer); _dbEditTimer=setTimeout(_flushDbSave, 600); }
+function scheduleSaveOnly(){ clearTimeout(_dbEditTimer); _dbEditTimer=setTimeout(_flushDbSave, 600); }
+window.addEventListener('pagehide', ()=>{ if(_dbEditTimer) _flushDbSave(); });
+// Actualiza SOLO la fila del producto (a pedir + color + total), sin re-dibujar toda la tabla.
+function refreshRow(prodId){
+  const prov = DB.proveedores.find(p=>p.id===currentProvId);
+  const pp = prov?.productos.find(x=>x.productoId===prodId);
+  const p = DB.productos.find(x=>x.id===prodId);
+  if(!pp||!p) return;
+  pp.apedir = calcAPedir(p, pp, pp.stock);
+  const tr = document.querySelector('#pd-list tr[data-pid="'+prodId+'"]');
+  if(tr){
+    const ap = tr.querySelector('.apedir-inp-tbl');
+    if(ap && document.activeElement!==ap) ap.value = fmtQty(pp.apedir);
+    const urg = getUrg(pp.stock, getMin(p,pp));
+    tr.classList.remove('urg-ss','urg-cr','urg-bj','urg-ok');
+    const cls = ({"SIN STOCK":"urg-ss","CRÍTICO":"urg-cr","BAJO":"urg-bj","OK":"urg-ok"})[urg];
+    if(cls) tr.classList.add(cls);
+  }
+  const total = (prov.productos||[]).reduce((acc,x)=>acc+(Number(x.apedir)||0),0);
+  const pt = document.getElementById('pd-total'); if(pt) pt.textContent = fmtQty(total)+' unid.';
+  if(typeof isMobile==='function' && isMobile() && typeof updateMobileTotalBar==='function') updateMobileTotalBar();
+}
 function setMinDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; scheduleDbSave(); }
 function setBultoDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; scheduleDbSave(); }
-function setMinDet(prodId, val){ const p=DB.productos.find(x=>x.id===prodId); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; DB.proveedores.forEach(pv=>{ const x=(pv.productos||[]).find(pp=>pp.productoId===prodId); if(x) x.minimoManual=0; }); scheduleDbSave(); }
-function setBultoDet(prodId, val){ const p=DB.productos.find(x=>x.id===prodId); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; DB.proveedores.forEach(pv=>{ const x=(pv.productos||[]).find(pp=>pp.productoId===prodId); if(x) x.bultoCerrado=0; }); scheduleDbSave(); }
+function setMinDet(prodId, val){ const p=DB.productos.find(x=>x.id===prodId); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; DB.proveedores.forEach(pv=>{ const x=(pv.productos||[]).find(pp=>pp.productoId===prodId); if(x) x.minimoManual=0; }); refreshRow(prodId); scheduleDbSave(); }
+function setBultoDet(prodId, val){ const p=DB.productos.find(x=>x.id===prodId); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; DB.proveedores.forEach(pv=>{ const x=(pv.productos||[]).find(pp=>pp.productoId===prodId); if(x) x.bultoCerrado=0; }); refreshRow(prodId); scheduleDbSave(); }
 function setUmbral(val){ let n=Math.round(Number(val)); if(isNaN(n)) n=60; n=Math.max(1,Math.min(100,n)); DB.umbralPct=n; const ui=document.getElementById('umbral-inp'); if(ui) ui.value=n; save(); renderCurrentView(); showToast('Umbral de repedido: '+n+'%'); }
 function recalcAllOrders() {
   DB.proveedores.forEach(pv=>{
@@ -1739,7 +1761,7 @@ function renderDetail() {
     const rub=getRubro(p.rubroId), min=getMin(p,pp), bulto=getBulto(p,pp), urg=getUrg(pp.stock,min);
     const rowCls = urg ? (urgRowClass[urg]||"") : "";
     const minSrc = pp.minimoManual>0?"✏️ manual":p.minimoManual>0?"prod.":rub?rub.nombre.slice(0,10):"def.";
-    return `<tr class="prod-row ${rowCls}">
+    return `<tr class="prod-row ${rowCls}" data-pid="${pp.productoId}">
       <td class="td-name td-name-edit" title="${esc(titleCase(p.nombre))} — clic para editar" onclick="nameClickEdit('${pp.productoId}')"><span class="td-name-inner">${nameSplit(titleCase(p.nombre))}</span></td>
       <td class="td-stock"><input type="number" inputmode="decimal" class="tbl-inp stk-inp-tbl" value="${pp.stock}" min="0" step="any" onchange="updateStock('${pp.productoId}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();enterNext(this,'.stk-inp-tbl')}" title="Stock actual"></td>
       <td class="td-min-val"><input class="det-inp det-min-inp" inputmode="decimal" value="${p.minimoManual>0?fmtQty(p.minimoManual):''}" placeholder="${fmtQty(min)}" title="Mínimo (${esc(minSrc)}) — Enter salta al siguiente" onchange="setMinDet('${pp.productoId}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();enterNext(this,'.det-min-inp')}"></td>
@@ -1800,11 +1822,10 @@ function saveStkEdit() {
 function updateStock(prodId, val) {
   const prov = DB.proveedores.find(p=>p.id===currentProvId);
   const pp   = prov?.productos.find(x=>x.productoId===prodId);
-  const p    = DB.productos.find(x=>x.id===prodId);
   if (!pp) return;
   pp.stock  = val===""?0:Math.max(0,Number(val));
-  pp.apedir = calcAPedir(p, pp, pp.stock);
-  save(); if(!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('.tbl-inp,.db-inp,.det-inp'))) renderDetail();
+  refreshRow(prodId);
+  scheduleSaveOnly();
 }
 
 function updateApedir(prodId, val) {
@@ -1813,10 +1834,13 @@ function updateApedir(prodId, val) {
   if (!pp) return;
   const p = DB.productos.find(x=>x.id===prodId);
   pp.apedir = val===""?0:normalizeOrderQty(p, pp, val);
-  save();
+  const tr = document.querySelector('#pd-list tr[data-pid="'+prodId+'"]');
+  const ap = tr?.querySelector('.apedir-inp-tbl');
+  if(ap && document.activeElement!==ap) ap.value = fmtQty(pp.apedir);
   const total = (prov.productos||[]).reduce((acc,x)=>acc+(Number(x.apedir)||0),0);
   const ptEl = document.getElementById("pd-total"); if(ptEl) ptEl.textContent = fmtQty(total)+" unid.";
   if (isMobile && isMobile()) updateMobileTotalBar();
+  scheduleSaveOnly();
 }
 
 function delProdFromProv(prodId) {
