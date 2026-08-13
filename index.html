@@ -1257,18 +1257,9 @@ fbRef.on("value", (snap) => {
 
   // ── Datos recibidos ──────────────────────────────────────────────────────
   // Verificar que Firebase no está devolviendo menos datos que el backup local
-  const backup = getLocalBackup();
-  if (backup && backup.data && !_fbLoaded) {
-    const fbProvs = Array.isArray(data.proveedores) ? data.proveedores.length : Object.keys(data.proveedores||{}).length;
-    const bkProvs = Array.isArray(backup.data.proveedores) ? backup.data.proveedores.length : Object.keys(backup.data.proveedores||{}).length;
-    if (bkProvs > fbProvs) {
-      console.warn(`⚠️ Firebase tiene ${fbProvs} proveedores pero backup local tiene ${bkProvs}. Usando backup.`);
-      DB = backup.data; normalizeDB(); save();
-      _fbLoaded = true; hideLoading(); renderCurrentView();
-      showToast("⚠️ Se detectó pérdida de datos — restaurado desde backup local");
-      return;
-    }
-  }
+  // (Quitado: la auto-restauración "si Firebase tiene menos proveedores que el backup local"
+  //  confundía BORRADOS a propósito con pérdida de datos y los resucitaba al recargar.
+  //  La recuperación ahora es manual desde los backups (que además son automáticos).)
   DB = data; normalizeDB();
   saveLocalBackup(); // siempre actualizar el backup cuando llegan datos de Firebase
   if (!_history.length) recordHistory(); // sembrar el estado inicial para deshacer
