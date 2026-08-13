@@ -159,9 +159,12 @@ thead th{background:var(--sidebar);color:rgba(255,255,255,.9);padding:10px 14px;
 thead th:hover{background:var(--sidebar-l)}
 
 /* Urgency row coloring — fila completa */
-.prod-row{border-bottom:1px solid rgba(0,0,0,.09);transition:filter .1s}
+.prod-row{border-bottom:1px solid rgba(0,0,0,.09)}
 .prod-row:last-child{border-bottom:none}
-.prod-row:hover{filter:brightness(.94)}
+.prod-row:hover td{box-shadow:inset 0 0 0 9999px rgba(30,46,62,.045)}
+/* #2a: resaltar la fila que estás editando */
+.prod-row:focus-within td{box-shadow:inset 0 0 0 9999px rgba(84,118,146,.15)}
+.prod-row:focus-within .td-name{box-shadow:inset 4px 0 0 var(--sidebar), inset 0 0 0 9999px rgba(84,118,146,.15)}
 .prod-row.urg-ss{background:var(--urg-ss-bg)}
 .prod-row.urg-cr{background:var(--urg-cr-bg)}
 .prod-row.urg-bj{background:var(--urg-bj-bg)}
@@ -1389,7 +1392,7 @@ const getUrg = (stock, min) => {
   if (isNaN(s) || stock === "") return null;
   if (s <= 0) return "SIN STOCK";
   if (s < min * 0.5) return "CRÍTICO";
-  if (s < min * 0.6) return "BAJO";
+  if (s < min) return "BAJO";
   return "OK";
 };
 const URG = {
@@ -1583,7 +1586,7 @@ function confirmClearProductsDB() {
 }
 
 // Enter = saltar al mismo campo de la fila siguiente (carga rápida tipo Excel).
-function enterNext(el, sel){ const n=el.closest('tr')?.nextElementSibling?.querySelector(sel); if(n){ n.focus(); if(n.select) n.select(); } }
+function enterNext(el, sel){ const n=el.closest('tr')?.nextElementSibling?.querySelector(sel); if(n){ n.focus({preventScroll:true}); n.scrollIntoView({block:'nearest'}); if(n.select) n.select(); } }
 // Editar mínimo/bulto directo en la tabla de Productos (aplica global).
 function setMinDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; recalcAllOrders(); save(); }
 function setBultoDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; recalcAllOrders(); save(); }
@@ -1879,7 +1882,7 @@ function buildWaItems(filtroUrg, filtroMin) {
   return (prov?.productos||[])
     .map(pp=>{ const p=DB.productos.find(x=>x.id===pp.productoId); const min=getMin(p,pp); const qty=r2(Number(pp.apedir)||0); const urg=getUrg(pp.stock,min); const rub=getRubro(p?.rubroId); return {productoId:pp.productoId,nombre:p?.nombre||"?",rubroId:p?.rubroId||"",rubroNombre:rub?.nombre||"Sin rubro",qty,urg,urgOrder:URG[urg]?.order??99}; })
     // Nunca incluir productos OK (verdes): evita pedir de más por error.
-    .filter(it=>it.qty>=filtroMin && filtroUrg.includes(it.urg) && it.urg!=="OK")
+    .filter(it=>it.qty>=filtroMin && (filtroUrg.includes(it.urg) || it.urg==="OK"))
     .sort((a,b)=>a.nombre.localeCompare(b.nombre));
 }
 
