@@ -1392,7 +1392,7 @@ const getUrg = (stock, min) => {
   if (isNaN(s) || stock === "") return null;
   if (s <= 0) return "SIN STOCK";
   if (s < min * 0.5) return "CRÍTICO";
-  if (s < min) return "BAJO";
+  if (s < min * 0.6) return "BAJO";
   return "OK";
 };
 const URG = {
@@ -1882,7 +1882,7 @@ function buildWaItems(filtroUrg, filtroMin) {
   return (prov?.productos||[])
     .map(pp=>{ const p=DB.productos.find(x=>x.id===pp.productoId); const min=getMin(p,pp); const qty=r2(Number(pp.apedir)||0); const urg=getUrg(pp.stock,min); const rub=getRubro(p?.rubroId); return {productoId:pp.productoId,nombre:p?.nombre||"?",rubroId:p?.rubroId||"",rubroNombre:rub?.nombre||"Sin rubro",qty,urg,urgOrder:URG[urg]?.order??99}; })
     // Nunca incluir productos OK (verdes): evita pedir de más por error.
-    .filter(it=>it.qty>=filtroMin && (filtroUrg.includes(it.urg) || it.urg==="OK"))
+    .filter(it=>it.qty>=filtroMin && filtroUrg.includes(it.urg) && it.urg!=="OK")
     .sort((a,b)=>a.nombre.localeCompare(b.nombre));
 }
 
