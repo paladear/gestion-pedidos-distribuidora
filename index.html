@@ -1250,7 +1250,7 @@ fbRef.on("value", (snap) => {
     DB = data; normalizeDB();
     if (!_history.length) recordHistory(); // sembrar el estado inicial para deshacer
     if (!_fbLoaded) { _fbLoaded = true; hideLoading(); armAutoBackup(); }
-    if (!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('.tbl-inp,.db-inp,.wa-qty'))) renderCurrentView();   // no re-dibujar mientras editás (no perder el foco)
+    if (!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('.tbl-inp,.db-inp,.det-inp,.wa-qty'))) renderCurrentView();   // no re-dibujar mientras editás (no perder el foco)
     if (_remoteUpdatePending) { _remoteUpdatePending = false; }
     return;
   }
@@ -1813,7 +1813,7 @@ function updateStock(prodId, val) {
   if (!pp) return;
   pp.stock  = val===""?0:Math.max(0,Number(val));
   pp.apedir = calcAPedir(p, pp, pp.stock);
-  save(); if(!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('.tbl-inp'))) renderDetail();
+  save(); if(!(document.activeElement&&document.activeElement.matches&&document.activeElement.matches('.tbl-inp,.db-inp,.det-inp'))) renderDetail();
 }
 
 function updateApedir(prodId, val) {
