@@ -739,6 +739,16 @@ td{padding:9px 12px;vertical-align:middle}
         <button class="btn btn-p" style="background:var(--green)" onclick="openModal('m-rub',()=>resetRubForm(null))"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Nuevo rubro</button>
       </div>
     </div>
+    <div style="margin:14px 18px 0;padding:14px 16px;background:var(--surface);border:2px solid var(--border-d);border-radius:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:170px">
+        <div style="font-weight:800;font-size:14px;color:var(--text)">Umbral de repedido</div>
+        <div style="font-size:12px;color:var(--text-s);margin-top:2px">Se repide cuando el stock baja de este % del mínimo. Por encima queda en verde y no se pide.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input id="umbral-inp" type="number" inputmode="numeric" min="1" max="100" step="5" value="60" onchange="setUmbral(this.value)" style="width:76px;padding:8px 10px;border:2px solid var(--sidebar);border-radius:10px;font-size:17px;font-weight:800;text-align:center;color:var(--sidebar-d);background:var(--surface-2);outline:none">
+        <span style="font-size:17px;font-weight:800;color:var(--text-m)">%</span>
+      </div>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
@@ -901,6 +911,7 @@ function normalizeDB() {
   DB.rubros      = toArr(DB.rubros);
   DB.productos   = toArr(DB.productos);
   DB.proveedores = toArr(DB.proveedores);
+  if (DB.umbralPct === undefined || !(DB.umbralPct>0)) DB.umbralPct = 60;
   DB.proveedores.forEach(prov => {
     prov.productos = toArr(prov.productos);
     prov.productos.forEach(pp => {
@@ -1391,8 +1402,9 @@ const getUrg = (stock, min) => {
   const s = Number(stock);
   if (isNaN(s) || stock === "") return null;
   if (s <= 0) return "SIN STOCK";
-  if (s < min * 0.5) return "CRÍTICO";
-  if (s < min * 0.6) return "BAJO";
+  const th = (DB.umbralPct||60)/100;
+  if (s < min * th * (5/6)) return "CRÍTICO";
+  if (s < min * th) return "BAJO";
   return "OK";
 };
 const URG = {
@@ -1452,6 +1464,7 @@ const closeModal = id => document.getElementById(id).classList.remove("open");
 
 // ══ RUBROS ════════════════════════════════════════════════════════════════════
 function renderRubros() {
+  const ui = document.getElementById("umbral-inp"); if (ui) ui.value = DB.umbralPct||60;
   const el = document.getElementById("rub-list");
   if (!DB.rubros.length) { el.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:50px;color:#9CA3AF"><div style="font-size:36px;margin-bottom:10px">📂</div><div style="font-weight:600;color:#6B7280">No hay rubros — hacé clic en Nuevo Rubro</div></td></tr>`; return; }
   el.innerHTML = DB.rubros.sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(r=>`<tr class="prod-row">
@@ -1590,6 +1603,7 @@ function enterNext(el, sel){ const n=el.closest('tr')?.nextElementSibling?.query
 // Editar mínimo/bulto directo en la tabla de Productos (aplica global).
 function setMinDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; recalcAllOrders(); save(); }
 function setBultoDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; recalcAllOrders(); save(); }
+function setUmbral(val){ let n=Math.round(Number(val)); if(isNaN(n)) n=60; n=Math.max(1,Math.min(100,n)); DB.umbralPct=n; const ui=document.getElementById('umbral-inp'); if(ui) ui.value=n; save(); renderCurrentView(); showToast('Umbral de repedido: '+n+'%'); }
 function recalcAllOrders() {
   DB.proveedores.forEach(pv=>{
     (pv.productos||[]).forEach(pp=>{
