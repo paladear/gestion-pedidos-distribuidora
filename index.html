@@ -1376,12 +1376,14 @@ const calcAPedir = (prod, provProdObj, stockVal) => {
   const stock = Math.max(0, Number(stockVal)||0);
   const faltante = Math.max(0, getMin(prod, provProdObj) - stock);
   const bulto = getBulto(prod, provProdObj);
-  return bulto > 1 ? r2(Math.ceil(faltante / bulto) * bulto) : r2(faltante);
+  if (bulto > 1) { const q = Math.ceil(faltante / bulto) * bulto; return (bulto % 1 !== 0) ? r2(q) : Math.round(q); }
+  return Math.round(faltante);
 };
 const normalizeOrderQty = (prod, provProdObj, qtyVal) => {
   const qty = Math.max(0, Number(qtyVal)||0);
   const bulto = getBulto(prod, provProdObj);
-  return bulto > 1 && qty > 0 ? r2(Math.ceil(qty / bulto) * bulto) : r2(qty);
+  if (bulto > 1 && qty > 0) { const q = Math.ceil(qty / bulto) * bulto; return (bulto % 1 !== 0) ? r2(q) : Math.round(q); }
+  return Math.round(qty);
 };
 const sameArticulo = (a,b) => {
   const na = String(a||"").trim(); const nb = String(b||"").trim();
