@@ -188,6 +188,9 @@ td{padding:9px 12px;vertical-align:middle}
 .tbl-inp:focus{border-color:var(--sidebar);background:#fff}
 .stk-inp-tbl{width:78px}
 .db-inp{width:82px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;text-align:center;color:var(--text);background:var(--surface-2);outline:none}
+.det-inp{width:60px;padding:4px 6px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:800;text-align:center;color:var(--text);background:var(--surface-2);outline:none}
+.det-inp:focus{border-color:var(--sidebar);background:#fff}
+.det-inp::placeholder{color:#B6C4D0;font-weight:700}
 .db-inp:focus{border-color:var(--sidebar);background:#fff}
 .db-inp::placeholder{color:#B6C4D0;font-weight:600}
 .apedir-inp-tbl{width:78px;border-color:var(--sidebar);border-width:2px;color:var(--sidebar);background:rgba(255,255,255,.85);font-size:15px;font-weight:800}
@@ -1608,6 +1611,8 @@ function scheduleDbSave(){ clearTimeout(_dbEditTimer); _dbEditTimer=setTimeout((
 window.addEventListener('pagehide', ()=>{ if(_dbEditTimer){ clearTimeout(_dbEditTimer); _dbEditTimer=null; recalcAllOrders(); save(); } });
 function setMinDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; scheduleDbSave(); }
 function setBultoDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; scheduleDbSave(); }
+function setMinDet(prodId, val){ const p=DB.productos.find(x=>x.id===prodId); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; DB.proveedores.forEach(pv=>{ const x=(pv.productos||[]).find(pp=>pp.productoId===prodId); if(x) x.minimoManual=0; }); scheduleDbSave(); }
+function setBultoDet(prodId, val){ const p=DB.productos.find(x=>x.id===prodId); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; DB.proveedores.forEach(pv=>{ const x=(pv.productos||[]).find(pp=>pp.productoId===prodId); if(x) x.bultoCerrado=0; }); scheduleDbSave(); }
 function setUmbral(val){ let n=Math.round(Number(val)); if(isNaN(n)) n=60; n=Math.max(1,Math.min(100,n)); DB.umbralPct=n; const ui=document.getElementById('umbral-inp'); if(ui) ui.value=n; save(); renderCurrentView(); showToast('Umbral de repedido: '+n+'%'); }
 function recalcAllOrders() {
   DB.proveedores.forEach(pv=>{
@@ -1746,8 +1751,8 @@ function renderDetail() {
     return `<tr class="prod-row ${rowCls}">
       <td class="td-name td-name-edit" title="${esc(titleCase(p.nombre))} — clic para editar" onclick="nameClickEdit('${pp.productoId}')"><span class="td-name-inner">${nameSplit(titleCase(p.nombre))}</span></td>
       <td class="td-stock"><input type="number" inputmode="decimal" class="tbl-inp stk-inp-tbl" value="${pp.stock}" min="0" step="any" onchange="updateStock('${pp.productoId}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();enterNext(this,'.stk-inp-tbl')}" title="Stock actual"></td>
-      <td class="td-min-val">${min}<span class="min-src" title="${minSrc}">${minSrc}</span></td>
-      <td class="td-min-val">${bulto>1?fmtQty(bulto):"—"}<span class="min-src">bulto</span></td>
+      <td class="td-min-val"><input class="det-inp det-min-inp" inputmode="decimal" value="${p.minimoManual>0?fmtQty(p.minimoManual):''}" placeholder="${fmtQty(min)}" title="Mínimo (${esc(minSrc)}) — Enter salta al siguiente" onchange="setMinDet('${pp.productoId}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();enterNext(this,'.det-min-inp')}"></td>
+      <td class="td-min-val"><input class="det-inp det-bulto-inp" inputmode="decimal" value="${p.bultoCerrado>1?fmtQty(p.bultoCerrado):''}" placeholder="—" title="Bulto cerrado — Enter salta al siguiente" onchange="setBultoDet('${pp.productoId}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();enterNext(this,'.det-bulto-inp')}"></td>
       <td class="td-apedir"><input type="number" step="any" inputmode="decimal" class="tbl-inp apedir-inp-tbl" value="${fmtQty(pp.apedir||0)}" min="0" onchange="updateApedir('${pp.productoId}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();enterNext(this,'.apedir-inp-tbl')}" title="A pedir"></td>
       <td class="td-act">
         <button class="tbl-btn tbl-btn-e" onclick="openStkEdit('${pp.productoId}')" title="Editar producto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
