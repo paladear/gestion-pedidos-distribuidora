@@ -1601,8 +1601,11 @@ function confirmClearProductsDB() {
 // Enter = saltar al mismo campo de la fila siguiente (carga rápida tipo Excel).
 function enterNext(el, sel){ const n=el.closest('tr')?.nextElementSibling?.querySelector(sel); if(n){ n.focus({preventScroll:true}); n.scrollIntoView({block:'nearest'}); if(n.select) n.select(); } }
 // Editar mínimo/bulto directo en la tabla de Productos (aplica global).
-function setMinDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; recalcAllOrders(); save(); }
-function setBultoDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; recalcAllOrders(); save(); }
+let _dbEditTimer=null;
+function scheduleDbSave(){ clearTimeout(_dbEditTimer); _dbEditTimer=setTimeout(()=>{ _dbEditTimer=null; recalcAllOrders(); save(); }, 600); }
+window.addEventListener('pagehide', ()=>{ if(_dbEditTimer){ clearTimeout(_dbEditTimer); _dbEditTimer=null; recalcAllOrders(); save(); } });
+function setMinDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.minimoManual=(val===''||isNaN(n)||n<=0)?0:n; scheduleDbSave(); }
+function setBultoDB(id, val){ const p=DB.productos.find(x=>x.id===id); if(!p) return; const n=parseNum(val); p.bultoCerrado=(val===''||isNaN(n)||n<=1)?0:n; scheduleDbSave(); }
 function setUmbral(val){ let n=Math.round(Number(val)); if(isNaN(n)) n=60; n=Math.max(1,Math.min(100,n)); DB.umbralPct=n; const ui=document.getElementById('umbral-inp'); if(ui) ui.value=n; save(); renderCurrentView(); showToast('Umbral de repedido: '+n+'%'); }
 function recalcAllOrders() {
   DB.proveedores.forEach(pv=>{
